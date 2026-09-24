@@ -1,0 +1,18 @@
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: security-analyzer
+  atespace: default
+spec:
+  image: "localhost:5001/security-agent@sha256:6262f24d3efa773e0c0b13a01e36df042abd823033843a32d5f9a31cd79b9265"
+  command:
+    - python3
+    - /agent/main.py
+  env:
+    - name: TARGET
+      value: "security-target.default.svc.cluster.local"
+    - name: WORKSPACE
+      value: "/workspace"
+    - name: NVIDIA_MODEL
+      value: "nvidia/nemotron-3-super-120b-a12b"
+  debug: true

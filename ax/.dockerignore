@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+.claude
+*.log
+tmp/
+!bin/linux_amd64/ax-task-runner
+ax
+ax-server
+ax-task-runner
+ax-controller

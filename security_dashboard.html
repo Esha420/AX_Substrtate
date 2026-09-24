@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AX + Agent Substrate Security Analyzer Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: rgba(18, 26, 43, 0.75);
+      --surface-border: rgba(255, 255, 255, 0.08);
+      --surface-hover: rgba(26, 38, 64, 0.85);
+      --text: #f0f4fc;
+      --text-muted: #8c9cb8;
+      --accent: #00f2fe;
+      --accent-glow: rgba(0, 242, 254, 0.25);
+      --danger: #ff3366;
+      --danger-glow: rgba(255, 51, 102, 0.2);
+      --warning: #ffb800;
+      --warning-glow: rgba(255, 184, 0, 0.2);
+      --success: #00e676;
+      --success-glow: rgba(0, 230, 118, 0.2);
+      --card-radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 242, 254, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(255, 51, 102, 0.06) 0px, transparent 50%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 2.5rem 2rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--surface-border);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-live {
+      background: var(--success-glow);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+    .badge-live::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    
+    h1 {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--card-radius);
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .stat-value { font-size: 2.2rem; font-weight: 800; margin: 0.35rem 0; font-family: 'Fira Code', monospace; }
+    .stat-meta { font-size: 0.85rem; color: var(--text-muted); }
+
+    .grid-main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 900px) { .grid-main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--card-radius);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th { color: var(--text-muted); padding: 0.75rem 1rem; border-bottom: 1px solid var(--surface-border); font-size: 0.75rem; text-transform: uppercase; }
+    td { padding: 0.9rem 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: 'Fira Code', monospace; font-size: 0.85rem; }
+
+    .tag {
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .tag-danger { background: var(--danger-glow); color: var(--danger); border: 1px solid var(--danger); }
+    .tag-warning { background: var(--warning-glow); color: var(--warning); border: 1px solid var(--warning); }
+    .tag-info { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent); }
+
+    .vuln-item {
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
+      border-left: 4px solid var(--accent);
+      margin-bottom: 1rem;
+    }
+    .vuln-item.high { border-left-color: var(--danger); }
+    .vuln-item.medium { border-left-color: var(--warning); }
+    .vuln-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+    .vuln-title { font-weight: 600; font-size: 0.95rem; }
+    .vuln-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .vuln-rem { font-size: 0.8rem; color: #a5b4fc; background: rgba(165, 180, 252, 0.08); padding: 0.4rem 0.6rem; border-radius: 6px; }
+
+    .timeline { list-style: none; position: relative; padding-left: 1.5rem; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 6px;
+      width: 2px;
+      background: var(--surface-border);
+    }
+    .timeline-item { position: relative; margin-bottom: 1.25rem; font-size: 0.85rem; }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -1.5rem;
+      top: 4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .timeline-title { font-weight: 600; color: var(--text); }
+    .timeline-time { font-size: 0.75rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="badge badge-live">Live Autonomous Execution</div>
+        <h1>Security Analyzer Mission Dashboard</h1>
+        <p class="subtitle">Google AX Task: <code class="mono">security-analyzer</code> | Target: <code class="mono">security-target.default.svc.cluster.local</code></p>
+      </div>
+      <div>
+        <span class="tag tag-danger" style="font-size: 0.9rem; padding: 0.5rem 1rem;">OVERALL RISK: HIGH</span>
+      </div>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Isolated Environment</div>
+        <div class="stat-value" style="color: var(--accent);">gVisor</div>
+        <div class="stat-meta">KVM Hardware Virtualization</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Ports Identified</div>
+        <div class="stat-value" style="color: #60a5fa;">7 / 7</div>
+        <div class="stat-meta">Nmap TCP Connect Scan</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fingerprinted Services</div>
+        <div class="stat-value" style="color: var(--warning);">4</div>
+        <div class="stat-meta">SSH, Nginx, Apache, MySQL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">AI Analysis Engine</div>
+        <div class="stat-value" style="color: var(--success); font-size: 1.5rem; padding-top: 0.5rem;">Nemotron</div>
+        <div class="stat-meta">NVIDIA LLM Security Synthesizer</div>
+      </div>
+    </div>
+
+    <div class="grid-main">
+      <div class="left-col">
+        <div class="card">
+          <div class="card-title">
+            <span>Discovered Attack Surface & Services</span>
+            <span class="mono" style="font-size: 0.8rem; color: var(--text-muted);">10.96.90.100</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Port</th>
+                <th>Service</th>
+                <th>Detected Version & Banner</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="mono" style="color: var(--accent);">22/tcp</span></td>
+                <td><span class="tag tag-info">SSH</span></td>
+                <td><span class="mono">OpenSSH 8.9p1 Ubuntu 3ubuntu0.6</span></td>
+                <td><span class="tag tag-warning">Medium</span></td>
+              </tr>
+              <tr>
+                <td><span class="mono" style="color: var(--accent);">80/tcp</span></td>
+                <td><span class="tag tag-info">HTTP</span></td>
+                <td><span class="mono">nginx 1.24.0 (PHP/8.1.2) - "Corporate Portal"</span></td>
+                <td><span class="tag tag-warning">Medium</span></td>
+              </tr>
+              <tr>
+                <td><span class="mono" style="color: var(--accent);">8080/tcp</span></td>
+                <td><span class="tag tag-info">Admin HTTP</span></td>
+                <td><span class="mono">Apache 2.4.52 - Basic Auth "Internal Management"</span></td>
+                <td><span class="tag tag-danger">High</span></td>
+              </tr>
+              <tr>
+                <td><span class="mono" style="color: var(--accent);">3306/tcp</span></td>
+                <td><span class="tag tag-info">MySQL</span></td>
+                <td><span class="mono">MySQL 5.7.42-0ubuntu0.18.04.1 Handshake</span></td>
+                <td><span class="tag tag-danger">Critical</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-title">AI Vulnerability & Risk Synthesis (NVIDIA Nemotron)</div>
+          
+          <div class="vuln-item high">
+            <div class="vuln-header">
+              <span class="vuln-title">Finding 1: Unrestricted Database Network Exposure</span>
+              <span class="tag tag-danger">High Risk</span>
+            </div>
+            <div class="vuln-desc">Port 3306 responds with a MySQL 5.7 handshake banner. The database listener is directly reachable across the container network without network zoning.</div>
+            <div class="vuln-rem">Remediation: Restrict database listener to localhost or apply Kubernetes NetworkPolicy to isolate port 3306.</div>
+          </div>
+
+          <div class="vuln-item medium">
+            <div class="vuln-header">
+              <span class="vuln-title">Finding 2: Exposed Management Portal with Basic Auth</span>
+              <span class="tag tag-warning">Medium Risk</span>
+            </div>
+            <div class="vuln-desc">Port 8080 hosts a Basic Auth restricted realm named "Internal Management". Allows unauthenticated brute-forcing of credentials from the network.</div>
+            <div class="vuln-rem">Remediation: Enforce mutual TLS (mTLS) or isolate administrative portals to VPN gateway subnets.</div>
+          </div>
+
+          <div class="vuln-item">
+            <div class="vuln-header">
+              <span class="vuln-title">Finding 3: Software Version Leakage via Headers</span>
+              <span class="tag tag-info">Low Risk</span>
+            </div>
+            <div class="vuln-desc">HTTP server headers explicitly disclose versions: Server: nginx/1.24.0, X-Powered-By: PHP/8.1.2.</div>
+            <div class="vuln-rem">Remediation: Disable version announcement headers (server_tokens off; expose_php = Off).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="card">
+          <div class="card-title">Execution Timeline</div>
+          <ul class="timeline">
+            <li class="timeline-item">
+              <div class="timeline-title">Task Scheduled & Reconciled</div>
+              <div class="timeline-time">AX Controller → Substrate gVisor Worker</div>
+            </li>
+            <li class="timeline-item">
+              <div class="timeline-title">Port Discovery Completed</div>
+              <div class="timeline-time">Found 7 active ports on target</div>
+            </li>
+            <li class="timeline-item">
+              <div class="timeline-title">Service Fingerprinting</div>
+              <div class="timeline-time">SSH, Nginx, Apache, MySQL identified</div>
+            </li>
+            <li class="timeline-item">
+              <div class="timeline-title">HTTP Script Enumeration</div>
+              <div class="timeline-time">Extracted titles, headers & auth realms</div>
+            </li>
+            <li class="timeline-item">
+              <div class="timeline-title">Nemotron AI Assessment</div>
+              <div class="timeline-time">Synthesized report & saved report.md</div>
+            </li>
+            <li class="timeline-item">
+              <div class="timeline-title">State Checkpointed to S3</div>
+              <div class="timeline-time">Suspend & Resume verified intact</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Storage & Sandboxing</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Durable Volume: <code class="mono" style="color: #fff;">/workspace</code><br>
+            Snapshots: <code class="mono" style="color: #fff;">s3://ate-snapshots/</code> (RustFS)<br>
+            Runtime: <code class="mono" style="color: #fff;">runsc (gVisor)</code>
+          </div>
+          <p style="font-size: 0.8rem; color: #a5b4fc;">State survived complete process eviction across suspend/resume cycles.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
