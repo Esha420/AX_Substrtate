@@ -1,0 +1,18 @@
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: openclaw-task
+  atespace: default
+spec:
+  image: "localhost:5001/openclaw-agent@sha256:3a04e2e6c1aa0681f3acc3cf97b1982a691f34a15daead7f2be2aa12fc782c16"
+  command:
+    - python3
+    - /agent/openclaw_agent.py
+  env:
+    - name: TARGET
+      value: "security-target.default.svc.cluster.local"
+    - name: SCAN_API_URL
+      value: "http://mock-scan-api.default.svc.cluster.local:8080"
+    - name: WORKSPACE
+      value: "/workspace"
+  debug: true

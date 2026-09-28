@@ -4,7 +4,7 @@ metadata:
   name: security-analyzer
   atespace: default
 spec:
-  image: "localhost:5001/security-agent@sha256:6262f24d3efa773e0c0b13a01e36df042abd823033843a32d5f9a31cd79b9265"
+  image: "localhost:5001/security-agent@sha256:46916344f8f26276ba6d7e4b3bb89861e24ce5145a4ef70b9153cab7ff0e3580"
   command:
     - python3
     - /agent/main.py
@@ -13,6 +13,14 @@ spec:
       value: "security-target.default.svc.cluster.local"
     - name: WORKSPACE
       value: "/workspace"
+    - name: AGENT_NAME
+      value: "security-analyzer"
     - name: NVIDIA_MODEL
       value: "nvidia/nemotron-3-super-120b-a12b"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "security-analyzer"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
   debug: true

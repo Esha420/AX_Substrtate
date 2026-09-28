@@ -95,6 +95,11 @@ data:
           insecure: true
       prometheus:
         endpoint: 0.0.0.0:8889
+      otlphttp/dash0:
+        endpoint: ${env:DASH0_ENDPOINT}
+        headers:
+          Authorization: "Bearer ${env:DASH0_AUTH_TOKEN}"
+          Dash0-Dataset: ${env:DASH0_DATASET}
       debug:
         verbosity: detailed
     service:
@@ -102,11 +107,11 @@ data:
         traces:
           receivers: [otlp]
           processors: [batch]
-          exporters: [otlp/jaeger, debug]
+          exporters: [otlp/jaeger, otlphttp/dash0, debug]
         metrics:
           receivers: [otlp]
           processors: [batch]
-          exporters: [prometheus, debug]
+          exporters: [prometheus, otlphttp/dash0, debug]
 
         # Every ate event, plus any workload that sends OTLP logs. debug is the
         # only exporter: kind has no log store, and the e2e read-back goes
@@ -116,7 +121,7 @@ data:
         logs:
           receivers: [otlp]
           processors: [batch]
-          exporters: [debug]
+          exporters: [otlphttp/dash0, debug]
 
         # The count pipelines read the same receiver as the pipelines above,
         # and they only count. The connector declares MutatesData false, thus
@@ -180,6 +185,9 @@ spec:
         image: otel/opentelemetry-collector-contrib:0.157.0@sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6
         args:
         - --config=/conf/otel-collector-config.yaml
+        envFrom:
+        - secretRef:
+            name: dash0-credentials
         volumeMounts:
         - name: config
           mountPath: /conf

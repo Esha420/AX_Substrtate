@@ -1,0 +1,74 @@
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: sec-agent-alpha
+  atespace: default
+spec:
+  image: "localhost:5001/security-agent@sha256:46916344f8f26276ba6d7e4b3bb89861e24ce5145a4ef70b9153cab7ff0e3580"
+  command:
+    - python3
+    - /agent/main.py
+  env:
+    - name: TARGET
+      value: "security-target.default.svc.cluster.local"
+    - name: WORKSPACE
+      value: "/workspace"
+    - name: AGENT_NAME
+      value: "sec-agent-alpha"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "security-analyzer"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
+  debug: true
+---
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: sec-agent-beta
+  atespace: default
+spec:
+  image: "localhost:5001/security-agent@sha256:46916344f8f26276ba6d7e4b3bb89861e24ce5145a4ef70b9153cab7ff0e3580"
+  command:
+    - python3
+    - /agent/main.py
+  env:
+    - name: TARGET
+      value: "security-target.default.svc.cluster.local"
+    - name: WORKSPACE
+      value: "/workspace"
+    - name: AGENT_NAME
+      value: "sec-agent-beta"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "security-analyzer"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
+  debug: true
+---
+apiVersion: ax.io/v1alpha1
+kind: Task
+metadata:
+  name: sec-agent-gamma
+  atespace: default
+spec:
+  image: "localhost:5001/security-agent@sha256:46916344f8f26276ba6d7e4b3bb89861e24ce5145a4ef70b9153cab7ff0e3580"
+  command:
+    - python3
+    - /agent/main.py
+  env:
+    - name: TARGET
+      value: "security-target.default.svc.cluster.local"
+    - name: WORKSPACE
+      value: "/workspace"
+    - name: AGENT_NAME
+      value: "sec-agent-gamma"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "security-analyzer"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
+  debug: true

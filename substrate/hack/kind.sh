@@ -16,5 +16,6 @@
 
 set -o errexit -o nounset -o pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export GOTOOLCHAIN=auto
 exec go run -C "${ROOT}/hack/tools/kind" sigs.k8s.io/kind "$@"

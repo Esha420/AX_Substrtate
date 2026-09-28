@@ -16,8 +16,9 @@
 
 set -o errexit -o nounset -o pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
+export GOTOOLCHAIN=auto
 
 # shellcheck disable=SC2155 # safe initialization
 goarch=$(go env GOARCH)

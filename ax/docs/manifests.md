@@ -130,7 +130,7 @@ spec:
 For Anthropic models, store the key the same way and set `provider: anthropic`.
 
 ```bash
-kubectl create secret generic anthropic-api-secret --from-literal=ANTHROPIC_API_KEY="sk-ant-..."
+kubectl create secret generic anthropic-api-secret --from-literal=ANTHROPIC_API_KEY="<your-anthropic-api-key>"
 ```
 
 ```yaml

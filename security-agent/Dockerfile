@@ -9,6 +9,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
+# Install OpenTelemetry SDK and GenAI semantic conventions
+RUN pip install --no-cache-dir \
+    opentelemetry-api \
+    opentelemetry-sdk \
+    opentelemetry-exporter-otlp-proto-http \
+    opentelemetry-semantic-conventions \
+    opentelemetry-semantic-conventions-ai
+
 # Copy the agent code
 COPY agent /agent
 

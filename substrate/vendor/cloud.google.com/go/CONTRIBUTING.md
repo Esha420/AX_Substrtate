@@ -283,7 +283,7 @@ export MY_LOCATION=global
 export GCLOUD_TESTS_GOLANG_KEYRING=projects/$GCLOUD_TESTS_GOLANG_PROJECT_ID/locations/$MY_LOCATION/keyRings/$MY_KEYRING
 
 # API key for using the Translate API.
-export GCLOUD_TESTS_API_KEY=abcdefghijk123456789
+export GCLOUD_TESTS_API_KEY=<your-test-api-key>
 
 # Compute Engine zone. (https://cloud.google.com/compute/docs/regions-zones)
 export GCLOUD_TESTS_GOLANG_ZONE=your-chosen-region

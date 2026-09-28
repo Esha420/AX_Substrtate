@@ -21,9 +21,10 @@ KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-kind}"
 KUBECTL_CONTEXT="kind-${KIND_CLUSTER_NAME}"
 reg_name="kind-registry"
 reg_port="${KIND_REGISTRY_PORT:-5001}"
+NODE_IMAGE=""
 
-if [[ $# -gt 0 ]]; then
-  case "$1" in
+for arg in "$@"; do
+  case "$arg" in
     -h|--help)
       echo "Usage: $0"
       echo "Creates the kind cluster '${KIND_CLUSTER_NAME}' and a local registry container on port ${reg_port}."
@@ -33,8 +34,11 @@ if [[ $# -gt 0 ]]; then
       echo "  IP_FAMILY          Address families for pods and Services: ipv4, ipv6 or dual (default: ipv4)."
       exit 0
       ;;
+    --node-image=*)
+      NODE_IMAGE="${arg#*=}"
+      ;;
   esac
-fi
+done
 
 # Only ipFamily is set; kind's per-family podSubnet/serviceSubnet defaults are
 # already what we want.
@@ -91,6 +95,11 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
 EOF
+if [ -n "${NODE_IMAGE}" ]; then
+  cat <<EOF >> "${ROOT}/bin/kind-config.yaml"
+  image: ${NODE_IMAGE}
+EOF
+fi
 if [ "${HAS_KVM}" = "1" ]; then
   cat <<EOF >> "${ROOT}/bin/kind-config.yaml"
   # Bind-mount /dev/kvm into the node so micro-VM (kata + cloud-hypervisor)

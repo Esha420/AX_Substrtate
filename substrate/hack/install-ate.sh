@@ -32,8 +32,9 @@
 
 set -o errexit -o nounset -o pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
+export GOTOOLCHAIN=auto
 
 # Demos, in the order --help lists them. Keeping the list here rather than
 # asking ate-setup for it means --help answers without a build, and that a demo

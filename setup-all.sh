@@ -27,6 +27,7 @@ mkdir -p "${HOME}/.kube"
 
 DOCKER_BIN="$(command -v docker)"
 KUBECTL_BIN="$(command -v kubectl)"
+KIND_BIN="$(command -v kind)"
 
 # 2. KinD Cluster & Substrate Setup
 echo "==> Provisioning KinD cluster with containerd mirroring and Substrate..."
@@ -34,6 +35,7 @@ docker run --rm --net=host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "${DOCKER_BIN}":/usr/bin/docker:ro \
   -v "${KUBECTL_BIN}":/usr/local/bin/kubectl:ro \
+  -v "${KIND_BIN}":/usr/local/bin/kind:ro \
   -v "${HOME}/.kube":/root/.kube \
   -v "${SCRIPT_DIR}":/workspace \
   -v go-build-cache:/root/.cache/go-build \
@@ -42,18 +44,18 @@ docker run --rm --net=host \
   golang:1.24 bash -c "
     set -euo pipefail
     git config --global --add safe.directory '*'
-    if ! kind get clusters | grep -q '^kind$'; then
+    export GOTOOLCHAIN=auto
+    if ! ./hack/kind.sh get clusters | grep -q '^kind$'; then
       echo '==> Creating KinD cluster kindest/node:v1.37.0...'
       ./hack/create-kind-cluster.sh --node-image=kindest/node:v1.37.0
     else
       echo '==> KinD cluster already exists. Continuing...'
     fi
     echo '==> Ensuring ko is installed...'
-    export GOTOOLCHAIN=auto
     go install github.com/google/ko@latest
     export PATH=\"/go/bin:\$PATH\"
     echo '==> Deploying Substrate System (ate-system)...'
-    ./hack/install-ate-kind.sh --deploy-ate-system
+    ./hack/install-ate-kind.sh --deploy-ate-system --rollout-timeout 300s
   "
 
 # Merge kubeconfig permissions for host if needed
@@ -61,8 +63,17 @@ chmod 600 "${HOME}/.kube/config" 2>/dev/null || true
 kubectl config use-context kind-kind >/dev/null 2>&1 || true
 
 echo "==> Waiting for Agent Substrate control plane to be Ready..."
-kubectl wait --for=condition=Available deployment/ate-api-server -n ate-system --timeout=180s
-kubectl wait --for=condition=Available deployment/rustfs -n ate-system --timeout=180s
+kubectl wait --for=condition=Available deployment/ate-api-server -n ate-system --timeout=300s
+kubectl wait --for=condition=Available deployment/rustfs -n ate-system --timeout=300s
+
+echo "==> Ensuring Dash0 credentials Secret exists in otel-system..."
+kubectl create secret generic dash0-credentials \
+  --namespace=otel-system \
+  --from-literal=DASH0_ENDPOINT="https://ingress.us-west-2.aws.dash0.com" \
+  --from-literal=DASH0_AUTH_TOKEN="auth_bQbms6SNZuQWbHz8WmSStANFhNfWVF3B" \
+  --from-literal=DASH0_DATASET="default" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 
 # 3. Build & Publish All Images (AX Control Plane, Runner, Toolbox, Security Agent)
 echo "==> Building and publishing all container images to local registry (localhost:5001)..."
@@ -81,7 +92,7 @@ docker run --rm --net=host \
     export GOTOOLCHAIN=auto
     export KO_DOCKER_REPO=localhost:5001
     export KO_DEFAULTPLATFORMS='linux/amd64'
-    export PATH='/go/bin:\$PATH'
+    export PATH=\"/go/bin:\$PATH\"
     go install github.com/google/ko@latest
 
     echo '==> Building ateom-gvisor...'
@@ -157,10 +168,10 @@ echo "==> Deploying In-Cluster Admin Toolbox..."
 kubectl apply -f ax/deploy/ax-toolbox.yaml
 
 echo "==> Waiting for AX pods to become Ready..."
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-server -n ax-system --timeout=120s
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-controller -n ax-system --timeout=120s
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-toolbox -n ax-system --timeout=120s
-kubectl wait --for=condition=Available deployment/worker-pool -n ax-system --timeout=120s
+kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-server -n ax-system --timeout=300s
+kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-controller -n ax-system --timeout=300s
+kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=ax-toolbox -n ax-system --timeout=300s
+kubectl wait --for=condition=Available deployment/worker-pool -n ax-system --timeout=300s
 
 # 5. Initialize Substrate Atespaces and Templates
 echo "==> Initializing Substrate atespaces..."
@@ -193,8 +204,16 @@ spec:
       value: "security-target.default.svc.cluster.local"
     - name: WORKSPACE
       value: "/workspace"
+    - name: AGENT_NAME
+      value: "security-analyzer"
     - name: NVIDIA_MODEL
       value: "nvidia/nemotron-3-super-120b-a12b"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "security-analyzer"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
   debug: true
 EOF
 

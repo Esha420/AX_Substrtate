@@ -2,6 +2,7 @@ import os
 import json
 import urllib.request
 import urllib.error
+from telemetry import trace_chat, GEN_AI_USAGE_INPUT_TOKENS, GEN_AI_USAGE_OUTPUT_TOKENS
 
 class NemotronAnalyzer:
     def __init__(self, api_key=None, base_url="https://integrate.api.nvidia.com/v1", model="nvidia/nemotron-3-super-120b-a12b"):
@@ -30,42 +31,55 @@ class NemotronAnalyzer:
             "5. Actionable Remediation Guidance\n"
         )
 
-        if not self.api_key or self.api_key == "mock":
-            log_fn("[AI] Notice: No external NVIDIA_API_KEY supplied. Generating offline synthetic expert analysis based on scan results.")
-            return self._generate_local_analysis(findings)
+        with trace_chat(model_name=self.model, provider="nvidia") as span:
+            approx_input_tokens = len(prompt) // 4
+            span.set_attribute(GEN_AI_USAGE_INPUT_TOKENS, approx_input_tokens)
 
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
-        }
-
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": "You are a professional security assessment AI."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.2,
-            "max_tokens": 1500
-        }
-
-        req = urllib.request.Request(
-            f"{self.base_url}/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers=headers,
-            method="POST"
-        )
-
-        try:
-            log_fn(f"[AI] Sending request to {self.base_url}/chat/completions ...")
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                resp_data = json.loads(resp.read().decode("utf-8"))
-                content = resp_data["choices"][0]["message"]["content"]
-                log_fn("[AI] Nemotron analysis successfully received!")
+            if not self.api_key or self.api_key == "mock":
+                log_fn("[AI] Notice: No external NVIDIA_API_KEY supplied. Generating offline synthetic expert analysis based on scan results.")
+                content = self._generate_local_analysis(findings)
+                span.set_attribute(GEN_AI_USAGE_OUTPUT_TOKENS, len(content) // 4)
                 return content
-        except Exception as e:
-            log_fn(f"[AI] Error calling Nemotron API: {e}. Falling back to rule-based security report.")
-            return self._generate_local_analysis(findings, error_msg=str(e))
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
+            }
+
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "You are a professional security assessment AI."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1500
+            }
+
+            req = urllib.request.Request(
+                f"{self.base_url}/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+                method="POST"
+            )
+
+            try:
+                log_fn(f"[AI] Sending request to {self.base_url}/chat/completions ...")
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    content = resp_data["choices"][0]["message"]["content"]
+                    usage = resp_data.get("usage", {})
+                    if "prompt_tokens" in usage:
+                        span.set_attribute(GEN_AI_USAGE_INPUT_TOKENS, usage["prompt_tokens"])
+                    if "completion_tokens" in usage:
+                        span.set_attribute(GEN_AI_USAGE_OUTPUT_TOKENS, usage["completion_tokens"])
+                    log_fn("[AI] Nemotron analysis successfully received!")
+                    return content
+            except Exception as e:
+                log_fn(f"[AI] Error calling Nemotron API: {e}. Falling back to rule-based security report.")
+                content = self._generate_local_analysis(findings, error_msg=str(e))
+                span.set_attribute(GEN_AI_USAGE_OUTPUT_TOKENS, len(content) // 4)
+                return content
 
     def _generate_local_analysis(self, findings, error_msg=None):
         target = findings.get("target", "target")
