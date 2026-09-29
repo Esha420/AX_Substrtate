@@ -242,38 +242,38 @@ sequenceDiagram
     Ctrl->>Log: LoadOrCreateLog("conv-101")
     Ctrl->>Act: Start turn with user prompt
     Act->>Ext: POST /api/v1/scans (Starts async scan)
-    Ext-->>Act: 202 Accepted {job_id: "scan-001"}
+    Ext-->>Act: 202 Accepted (job_id: scan-001)
 
     Note over Act,Log: Log tool call event (seq=1)
-    Act->>Ctrl: RecordEvent(ExecutionEvent{tool: "scan", status: "PENDING"})
+    Act->>Ctrl: RecordEvent(ExecutionEvent: tool=scan, status=PENDING)
     Ctrl->>Log: Append(seq=1, type="TOOL_CALL", state="PENDING")
     Ctrl-->>User: Stream event seq=1
 
-    Note over User,Act: Client disconnects & Actor suspends
+    Note over User,Act: Client disconnects and Actor suspends
     User--xCtrl: Client disconnects / closes terminal
-    Ctrl->>Act: Idle detected -> Substrate SuspendActor("openclaw")
-    Note over Act: gVisor snapshot to S3; Worker pod released to pool!
+    Ctrl->>Act: Idle detected, Substrate SuspendActor("openclaw")
+    Note over Act: gVisor snapshot to S3, Worker pod released to pool
 
-    Note over Ext,Bridge: Background processing & Completion Webhook
+    Note over Ext,Bridge: Background processing and Completion Webhook
     Ext->>Ext: 60s asynchronous scan executes
-    Ext->>Bridge: POST /webhook {job_id: "scan-001", status: "COMPLETED", result: {...}}
+    Ext->>Bridge: POST /webhook (job_id: scan-001, status: COMPLETED)
 
     Note over Bridge,Ctrl: Bridge correlates job_id to conv-101
-    Bridge->>Ctrl: ResumeConversation(conv_id="conv-101", result={...})
+    Bridge->>Ctrl: ResumeConversation(conv_id: conv-101)
     Ctrl->>Log: Append(seq=2, type="TOOL_RESULT", state="COMPLETED")
     Ctrl->>Act: Substrate ResumeActor("openclaw") onto available Worker
 
-    Note over Act: Actor resumes from memory snapshot & consumes seq=2 result
-    Act->>Act: Process scan findings & generate /workspace/report.md
+    Note over Act: Actor resumes from memory snapshot and consumes seq=2 result
+    Act->>Act: Process scan findings and generate /workspace/report.md
     Act->>Ctrl: RecordEvent(type="AGENT_OUTPUT", content="Scan report generated.")
     Ctrl->>Log: Append(seq=3, type="AGENT_OUTPUT")
 
     Note over User,Ctrl: Client reconnects later with last_seq=1
     User->>Ctrl: Exec(conversation_id="conv-101", last_seq=1, resume=true)
     Ctrl->>Log: Fetch events where seq > 1
-    Log-->>Ctrl: Returns [seq=2 (TOOL_RESULT), seq=3 (AGENT_OUTPUT)]
+    Log-->>Ctrl: Returns [seq=2 TOOL_RESULT, seq=3 AGENT_OUTPUT]
     Ctrl-->>User: Stream events (seq 2 and 3)
-    Note over User: Client caught up with full history without rollback!
+    Note over User: Client caught up with full history without rollback
 ```
 
 ---
