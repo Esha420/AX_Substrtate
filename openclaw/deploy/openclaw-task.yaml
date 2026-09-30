@@ -4,15 +4,23 @@ metadata:
   name: openclaw-task
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:3a04e2e6c1aa0681f3acc3cf97b1982a691f34a15daead7f2be2aa12fc782c16"
+  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
   command:
-    - python3
-    - /agent/openclaw_agent.py
+    - /bin/bash
+    - /agent/run_workload.sh
   env:
     - name: TARGET
       value: "security-target.default.svc.cluster.local"
     - name: SCAN_API_URL
-      value: "http://mock-scan-api.default.svc.cluster.local:8080"
+      value: "http://external-scan-api:8080"
+    - name: MCP_URL
+      value: "http://external-mcp-server:8000/mcp"
     - name: WORKSPACE
       value: "/workspace"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
+    - name: OTEL_SERVICE_NAME
+      value: "openclaw-agent"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
   debug: true

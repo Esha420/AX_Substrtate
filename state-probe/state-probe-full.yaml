@@ -1,0 +1,32 @@
+metadata:
+  atespace: default
+  name: state-probe-full
+containers:
+- name: guest
+  image: localhost:5001/state-probe@sha256:3d5eae7a173e1ae8b0d1a6e7c7e0010df1638d6b0fbef7e6d6ba5d48292143c0
+  command:
+  - python3
+  - /app/probe.py
+  env:
+  - name: WORKSPACE
+    value: /workspace
+  - name: PROBE_HTTP_PORT
+    value: "8080"
+  volumeMounts:
+  - mountPath: /workspace
+    name: workspace
+  wakeupProbe:
+    httpGet:
+      path: /status
+      port: 8080
+    timeoutSeconds: 30
+sandboxConfig:
+  configName: gvisor-default
+  sandboxClass: SANDBOX_CLASS_GVISOR
+snapshotConfig:
+  onCommit: SNAPSHOT_CONTENT_SCOPE_FULL
+  onPause: SNAPSHOT_CONTENT_SCOPE_FULL
+  storageLocation: s3://ate-snapshots/
+volumes:
+- durableDir: {}
+  name: workspace

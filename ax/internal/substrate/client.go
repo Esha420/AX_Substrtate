@@ -263,8 +263,8 @@ func BuildActorTemplate(atespace, name, image string, envMap map[string]string, 
 		}},
 		SnapshotsConfig: &ateapipb.SnapshotsConfig{
 			StorageLocation: snapshotsBucket,
-			OnPause:         ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA,
-			OnCommit:        ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA,
+			OnPause:         ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL,
+			OnCommit:        ateapipb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_FULL,
 			OnResume: &ateapipb.OnResumeConfig{
 				FromData: ateapipb.ResumeSource_RESUME_SOURCE_GOLDEN,
 			},

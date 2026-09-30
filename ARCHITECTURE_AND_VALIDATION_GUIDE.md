@@ -2,6 +2,11 @@
 
 ## Architecture, Implementation & Next Steps Guide
 
+> [!NOTE]
+> **Definitive Master Documentation Available:**
+> For the complete architectural specification covering the multi-tool pipeline (`nmap` + external MCP + async scan), external Docker network integration, native `atenet-router` ingress resumption, and the full memory snapshot patch, see:
+> [docs/AUTONOMOUS_ACTOR_MULTIPLEXING_ARCHITECTURE.md](docs/AUTONOMOUS_ACTOR_MULTIPLEXING_ARCHITECTURE.md).
+
 ---
 
 ## 1. Executive Summary & Investigation Goal

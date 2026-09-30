@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ax-runtime-observer
+  namespace: ax-system
+  labels:
+    app: ax-runtime-observer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ax-runtime-observer
+  template:
+    metadata:
+      labels:
+        app: ax-runtime-observer
+    spec:
+      serviceAccountName: ax-toolbox
+      containers:
+      - name: observer
+        image: localhost:5001/ax-runtime-observer:latest
+        imagePullPolicy: Always
+        env:
+        - name: TARGET_TASK
+          value: "openclaw-task*"
+        - name: TARGET_ATESPACE
+          value: "default"
+        - name: AX_SERVER
+          value: "http://ax-server.ax-system.svc.cluster.local:8080"
+        - name: POLL_INTERVAL_SEC
+          value: "1.0"
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi

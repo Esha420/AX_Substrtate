@@ -139,6 +139,18 @@ EOF
     docker build -t localhost:5001/security-agent:latest -f security-agent/Dockerfile security-agent
     docker push localhost:5001/security-agent:latest
 
+    echo '==> Building openclaw-agent image...'
+    docker build -t localhost:5001/openclaw-agent:latest -f openclaw/Dockerfile openclaw
+    docker push localhost:5001/openclaw-agent:latest
+
+    echo '==> Building ax-runtime-observer image...'
+    docker build -t localhost:5001/ax-runtime-observer:latest -f ax-runtime-observer/Dockerfile ax-runtime-observer
+    docker push localhost:5001/ax-runtime-observer:latest
+
+    echo '==> Building external services images (MCP server & Scan API)...'
+    docker build -t external-mcp-server:latest -f external-services/mcp-server/Dockerfile external-services/mcp-server
+    docker build -t external-scan-api:latest -f external-services/scan-api/Dockerfile external-services/scan-api
+
     echo '==> Cleaning temporary build binaries from host workspace...'
     rm -rf /workspace/bin /workspace/Dockerfile.toolbox /workspace/ax/bin
   "
@@ -183,42 +195,30 @@ echo "==> Deploying isolated Mock Security Target (default namespace)..."
 kubectl apply -f ax/deploy/security-target.yaml
 kubectl wait --for=condition=Ready pod -l app=security-target -n default --timeout=120s
 
-# 7. Pin Exact Security Agent Image Digest and Deploy Task
-echo "==> Resolving security-agent digest and deploying AX Task..."
-SECURITY_AGENT_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' localhost:5001/security-agent:latest)
-echo "Resolved security-agent digest: ${SECURITY_AGENT_DIGEST}"
+# 7. Configure Ingress NodePort for atenet-router (Native Resumption Dataplane)
+echo "==> Configuring atenet-router Ingress NodePort (30080)..."
+kubectl patch svc atenet-router -n ate-system -p '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "nodePort": 30080, "targetPort": 8080}]}}'
 
-cat << EOF > ax/deploy/security-task.yaml
-apiVersion: ax.io/v1alpha1
-kind: Task
-metadata:
-  name: security-analyzer
-  atespace: default
-spec:
-  image: "${SECURITY_AGENT_DIGEST}"
-  command:
-    - python3
-    - /agent/main.py
-  env:
-    - name: TARGET
-      value: "security-target.default.svc.cluster.local"
-    - name: WORKSPACE
-      value: "/workspace"
-    - name: AGENT_NAME
-      value: "security-analyzer"
-    - name: NVIDIA_MODEL
-      value: "nvidia/nemotron-3-super-120b-a12b"
-    - name: OTEL_EXPORTER_OTLP_ENDPOINT
-      value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
-    - name: OTEL_SERVICE_NAME
-      value: "security-analyzer"
-    - name: OTEL_EXPORTER_OTLP_PROTOCOL
-      value: "http/protobuf"
-  debug: true
-EOF
+# 8. Launch External Services Outside Kubernetes (Docker kind bridge network)
+echo "==> Launching External Services outside Kubernetes on kind bridge network..."
+docker rm -f external-mcp-server 2>/dev/null || true
+docker run -d --name external-mcp-server --net=kind external-mcp-server:latest
+docker rm -f external-scan-api 2>/dev/null || true
+docker run -d --name external-scan-api --net=kind external-scan-api:latest
 
-kubectl exec -n ax-system deploy/ax-toolbox -- ax delete task security-analyzer 2>/dev/null || true
-cat ax/deploy/security-task.yaml | kubectl exec -i -n ax-system deploy/ax-toolbox -- ax apply -f -
+# 9. Deploy AX Runtime Lifecycle Observer
+echo "==> Deploying AX Runtime Lifecycle Observer..."
+kubectl apply -f ax-runtime-observer/observer-deployment.yaml
+kubectl rollout status deployment/ax-runtime-observer -n ax-system --timeout=120s
+
+# 10. Pin Exact OpenClaw Image Digest and Deploy Task
+echo "==> Resolving openclaw-agent digest and deploying OpenClaw Task..."
+OPENCLAW_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' localhost:5001/openclaw-agent:latest)
+echo "Resolved openclaw-agent digest: ${OPENCLAW_DIGEST}"
+
+sed -i "s|image: .*|image: \"${OPENCLAW_DIGEST}\"|" openclaw/deploy/openclaw-task.yaml
+kubectl exec -n ax-system deploy/ax-toolbox -- ax delete task openclaw-task 2>/dev/null || true
+cat openclaw/deploy/openclaw-task.yaml | kubectl exec -i -n ax-system deploy/ax-toolbox -- ax apply -f -
 
 echo "===================================================================="
 echo " SETUP COMPLETED SUCCESSFULLY!"
@@ -229,9 +229,11 @@ echo "  alias kubectl-ate='kubectl exec -it -n ax-system deploy/ax-toolbox -- ku
 echo ""
 echo "Try these commands:"
 echo "  ax get tasks"
-echo "  ax describe task security-analyzer"
-echo "  ax ssh security-analyzer -- tail -f /workspace/security.log"
-echo "  ax ssh security-analyzer -- cat /workspace/report.md"
+echo "  ax describe task openclaw-task"
+echo "  kubectl logs -n ax-system -l app=ax-runtime-observer -f"
 echo "  kubectl-ate get workers"
 echo "  kubectl-ate get actors -a default"
+echo "  ax ssh openclaw-task -- cat /workspace/report.md"
+echo "  docker logs -f external-scan-api"
 echo "===================================================================="
+

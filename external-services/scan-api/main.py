@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Mock External Async Scan API Service
-Simulates a long-running, asynchronous security scanning API.
-Returns 202 Accepted + Job ID on submission, executes a 60-second background scan,
-and dispatches an HTTP webhook callback upon job completion to trigger automated AX resume.
+External Async Security Scan API Service
+Runs outside Kubernetes on the kind bridge network.
+Provides 202 Accepted + Job ID async contract, background scan execution,
+and completion webhook dispatched into atenet-router on NodePort 30080.
+Completely decoupled from AX and Substrate.
 """
 
 import json
@@ -19,22 +20,22 @@ from urllib.parse import urlparse
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [MockScanAPI] %(message)s",
+    format="%(asctime)s [%(levelname)s] [ExternalScanAPI] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
 PORT = int(os.environ.get("PORT", "8080"))
-JOB_DELAY_SECONDS = int(os.environ.get("JOB_DELAY_SECONDS", "60"))
-DEFAULT_CALLBACK_URL = os.environ.get("CALLBACK_URL", "http://atenet-router.ate-system.svc.cluster.local:80/webhook")
+JOB_DELAY_SECONDS = int(os.environ.get("JOB_DELAY_SECONDS", "45"))
+DEFAULT_CALLBACK_URL = os.environ.get("CALLBACK_URL", "http://kind-control-plane:30080/webhook")
 
-# In-memory store for jobs and audit logs
 jobs_lock = threading.Lock()
 jobs = {}
 audit_log = []
 
-def run_job_background(job_id, target, delay, callback_url, requester):
-    logging.info(f"Background worker started for job {job_id} on target {target}. Duration: {delay}s")
+def run_job_background(job_id, target, delay, callback_url, requester, task_name, atespace):
+    logging.info(f"Background worker started for job '{job_id}' (target='{target}', duration={delay}s, task='{task_name}')")
     time.sleep(delay)
+
     with jobs_lock:
         if job_id in jobs:
             jobs[job_id]["status"] = "COMPLETED"
@@ -56,13 +57,11 @@ def run_job_background(job_id, target, delay, callback_url, requester):
                 ],
                 "summary": "External scan finished with 3 vulnerabilities discovered."
             }
-            logging.info(f"Background worker completed for job {job_id}!")
+            logging.info(f"Background worker completed for job '{job_id}'!")
 
-    # Dispatch external webhook callback
+    # Dispatch external completion webhook into atenet-router to trigger actor wake
     if callback_url:
-        logging.info(f"Dispatching completion webhook for job {job_id} to {callback_url}...")
-        task_name = "openclaw-task"
-        atespace = "default"
+        logging.info(f"Dispatching completion webhook for job '{job_id}' to {callback_url} (target actor: {atespace}/{task_name})...")
         webhook_payload = json.dumps({
             "event": "JOB_COMPLETED",
             "job_id": job_id,
@@ -76,10 +75,9 @@ def run_job_background(job_id, target, delay, callback_url, requester):
 
         headers = {
             "Content-Type": "application/json",
-            "Connection": "close"
+            "Connection": "close",
+            "ate-target-actor": f"{atespace}/{task_name}"
         }
-        # Native Substrate request-driven actor wake header
-        headers["ate-target-actor"] = f"{atespace}/{task_name}"
 
         try:
             req = urllib.request.Request(
@@ -90,7 +88,7 @@ def run_job_background(job_id, target, delay, callback_url, requester):
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 resp_body = resp.read().decode("utf-8")
-                logging.info(f"Webhook response ({resp.status}): {resp_body}")
+                logging.info(f"Webhook delivered ({resp.status}): {resp_body}")
                 with jobs_lock:
                     audit_log.append({
                         "event": "WEBHOOK_DISPATCHED",
@@ -101,7 +99,7 @@ def run_job_background(job_id, target, delay, callback_url, requester):
                         "timestamp": time.time()
                     })
         except Exception as e:
-            logging.error(f"Failed to dispatch webhook for job {job_id} to {callback_url}: {e}")
+            logging.error(f"Failed to dispatch webhook for job '{job_id}' to {callback_url}: {e}")
             with jobs_lock:
                 audit_log.append({
                     "event": "WEBHOOK_FAILED",
@@ -111,7 +109,7 @@ def run_job_background(job_id, target, delay, callback_url, requester):
                     "timestamp": time.time()
                 })
 
-class MockScanHandler(BaseHTTPRequestHandler):
+class ScanHandler(BaseHTTPRequestHandler):
     def _send_json(self, status_code, data):
         response_bytes = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(status_code)
@@ -125,11 +123,11 @@ class MockScanHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
-        if path == "" or path == "/healthz":
-            self._send_json(200, {"status": "HEALTHY", "service": "mock-scan-api"})
+        if path in ["", "/healthz"]:
+            self._send_json(200, {"status": "HEALTHY", "service": "external-scan-api", "port": PORT})
             return
 
-        if path == "/api/v1/jobs" or path == "/api/v1/audit":
+        if path in ["/api/v1/jobs", "/api/v1/audit"]:
             with jobs_lock:
                 self._send_json(200, {
                     "total_jobs": len(jobs),
@@ -171,16 +169,20 @@ class MockScanHandler(BaseHTTPRequestHandler):
 
             target = payload.get("target", "security-target.default.svc.cluster.local")
             requester = payload.get("requester", "openclaw-agent")
+            task_name = payload.get("task_name", os.environ.get("DEFAULT_TARGET_TASK", "openclaw-task"))
+            atespace = payload.get("atespace", "default")
             callback_url = payload.get("callback_url", DEFAULT_CALLBACK_URL)
 
             with jobs_lock:
                 job_index = len(jobs) + 1
-                job_id = f"scan-{job_index:03d}"
+                job_id = f"ext-scan-{job_index:03d}"
                 created_at = time.time()
                 job_entry = {
                     "job_id": job_id,
                     "target": target,
                     "requester": requester,
+                    "task_name": task_name,
+                    "atespace": atespace,
                     "callback_url": callback_url,
                     "status": "PENDING",
                     "created_at": created_at,
@@ -193,21 +195,21 @@ class MockScanHandler(BaseHTTPRequestHandler):
                     "job_id": job_id,
                     "target": target,
                     "requester": requester,
+                    "task_name": task_name,
+                    "atespace": atespace,
                     "callback_url": callback_url,
                     "timestamp": created_at
                 })
 
-            logging.info(f"Received scan request for '{target}'. Assigned job_id: {job_id}. Returning 202 Accepted.")
-            
-            # Start asynchronous background execution
+            logging.info(f"Accepted scan request for '{target}'. Assigned job_id: {job_id} (Duration: {JOB_DELAY_SECONDS}s).")
+
             worker_thread = threading.Thread(
                 target=run_job_background,
-                args=(job_id, target, JOB_DELAY_SECONDS, callback_url, requester),
+                args=(job_id, target, JOB_DELAY_SECONDS, callback_url, requester, task_name, atespace),
                 daemon=True
             )
             worker_thread.start()
 
-            # Return 202 Accepted
             self._send_json(202, {
                 "job_id": job_id,
                 "status": "PENDING",
@@ -221,12 +223,12 @@ class MockScanHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "Endpoint not found"})
 
 def main():
-    server = HTTPServer(("0.0.0.0", PORT), MockScanHandler)
-    logging.info(f"Mock Scan API listening on port {PORT} (Job delay: {JOB_DELAY_SECONDS}s, Callback: {DEFAULT_CALLBACK_URL})")
+    server = HTTPServer(("0.0.0.0", PORT), ScanHandler)
+    logging.info(f"External Scan API listening on port {PORT} (Duration: {JOB_DELAY_SECONDS}s, Callback: {DEFAULT_CALLBACK_URL})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        logging.info("Shutting down Mock Scan API...")
+        logging.info("Shutting down External Scan API...")
         server.server_close()
 
 if __name__ == "__main__":

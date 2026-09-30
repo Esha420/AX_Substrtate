@@ -63,7 +63,21 @@ cd /workspace
 docker build -t localhost:5001/ax-toolbox:latest -f Dockerfile.toolbox .
 docker push localhost:5001/ax-toolbox:latest
 
+echo "==> Building openclaw-agent image..."
+cd /workspace
+docker build -t localhost:5001/openclaw-agent:latest -f openclaw/Dockerfile openclaw
+docker push localhost:5001/openclaw-agent:latest
+
+echo "==> Building ax-runtime-observer image..."
+docker build -t localhost:5001/ax-runtime-observer:latest -f ax-runtime-observer/Dockerfile ax-runtime-observer
+docker push localhost:5001/ax-runtime-observer:latest
+
+echo "==> Building external-services container images..."
+docker build -t external-mcp-server:latest -f external-services/mcp-server/Dockerfile external-services/mcp-server
+docker build -t external-scan-api:latest -f external-services/scan-api/Dockerfile external-services/scan-api
+
 echo "==> Cleaning local /workspace/bin so no binaries stay on host..."
 rm -rf /workspace/bin /workspace/Dockerfile.toolbox /workspace/ax/bin
 
 echo "==> ALL IMAGES BUILT AND PUBLISHED TO LOCAL REGISTRY!"
+
