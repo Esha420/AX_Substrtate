@@ -223,6 +223,11 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, task *v1alpha1.Task, gat
 	slog.Info("resuming actor on Substrate worker", "actor", actorName)
 	_, workerIP, err := r.client.ResumeActor(ctx, atespace, actorName)
 	if err != nil {
+		if status.Code(err) == codes.ResourceExhausted || strings.Contains(err.Error(), "no free workers available") {
+			r.setNotReady(task, "WaitingForWorker", "No free workers available in worker pool, waiting for capacity", now)
+			task.Status.Phase = "Pending"
+			return task, nil
+		}
 		r.setNotReady(task, "ActorResumeFailed", err.Error(), now)
 		task.Status.Phase = "Failed"
 		return task, fmt.Errorf("resuming actor: %w", err)

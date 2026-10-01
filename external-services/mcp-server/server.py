@@ -92,6 +92,50 @@ def handle_jsonrpc(req_body):
                         }
                     },
                     {
+                        "name": "fetch_keywords",
+                        "description": "Fetch literature keywords and citation graphs for research topics",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "topic": {"type": "string", "description": "Research topic"}
+                            },
+                            "required": ["topic"]
+                        }
+                    },
+                    {
+                        "name": "get_dataset_schema",
+                        "description": "Retrieve schema metadata and summary statistics for tabular datasets",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "dataset": {"type": "string", "description": "Dataset name"}
+                            },
+                            "required": ["dataset"]
+                        }
+                    },
+                    {
+                        "name": "ping_endpoints",
+                        "description": "Perform low-latency ping checks on distributed infrastructure endpoints",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "target": {"type": "string", "description": "Infrastructure target or endpoint group"}
+                            },
+                            "required": ["target"]
+                        }
+                    },
+                    {
+                        "name": "validate_template",
+                        "description": "Validate markdown/PDF document templates against structural schemas",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "template_name": {"type": "string", "description": "Template identifier"}
+                            },
+                            "required": ["template_name"]
+                        }
+                    },
+                    {
                         "name": "get_cve_remediation",
                         "description": "Retrieve prioritized remediation playbooks for identified CVEs",
                         "inputSchema": {
@@ -127,6 +171,95 @@ def handle_jsonrpc(req_body):
                         {
                             "type": "text",
                             "text": json.dumps(intel, indent=2)
+                        }
+                    ]
+                }
+            }
+
+        elif tool_name == "fetch_keywords":
+            topic = args.get("topic", "Autonomous Multi-Agent Multiplexing")
+            res = {
+                "topic": topic,
+                "keywords": ["actor-migration", "checkpoint-restore", "gVisor-s3", "cr-dts", "stateful-agents"],
+                "citation_count": 27,
+                "domain": "Computer Systems & Autonomous Software"
+            }
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(res, indent=2)
+                        }
+                    ]
+                }
+            }
+
+        elif tool_name == "get_dataset_schema":
+            dataset = args.get("dataset", "telemetry-metrics-stream")
+            res = {
+                "dataset": dataset,
+                "record_count": 1420500,
+                "columns": [
+                    {"name": "timestamp_ns", "type": "int64", "indexed": True},
+                    {"name": "actor_id", "type": "string", "indexed": True},
+                    {"name": "cpu_utilization", "type": "float32", "indexed": False},
+                    {"name": "memory_resident_bytes", "type": "int64", "indexed": False}
+                ],
+                "schema_version": "v3.1"
+            }
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(res, indent=2)
+                        }
+                    ]
+                }
+            }
+
+        elif tool_name == "ping_endpoints":
+            target = args.get("target", "infra-mesh")
+            res = {
+                "probed_nodes": ["edge-gateway-01", "edge-gateway-02", "storage-backend"],
+                "latency_metrics": {"min_ms": 1.2, "avg_ms": 4.1, "max_ms": 8.7},
+                "packet_loss_pct": 0.0,
+                "system_status": "OPTIMAL"
+            }
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(res, indent=2)
+                        }
+                    ]
+                }
+            }
+
+        elif tool_name == "validate_template":
+            template_name = args.get("template_name", "quarterly-technical-audit")
+            res = {
+                "template_name": template_name,
+                "syntax_valid": True,
+                "required_sections": ["Executive Summary", "Architectural Findings", "Remediation Matrix"],
+                "engine": "Markdown-AST-v2"
+            }
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(res, indent=2)
                         }
                     ]
                 }

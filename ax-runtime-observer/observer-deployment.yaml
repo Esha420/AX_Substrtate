@@ -20,15 +20,26 @@ spec:
       - name: observer
         image: localhost:5001/ax-runtime-observer:latest
         imagePullPolicy: Always
+        ports:
+        - name: bridge
+          containerPort: 8088
         env:
         - name: TARGET_TASK
-          value: "openclaw-task*"
+          value: "openclaw-*"
         - name: TARGET_ATESPACE
           value: "default"
         - name: AX_SERVER
           value: "http://ax-server.ax-system.svc.cluster.local:8080"
+        - name: REDIS_HOST
+          value: "ax-redis.ax-system.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
         - name: POLL_INTERVAL_SEC
           value: "1.0"
+        - name: SUSPEND_THRESHOLD_SEC
+          value: "3.0"
+        - name: ATENET_ROUTER_URL
+          value: "http://atenet-router.ate-system.svc.cluster.local:80/webhook"
         resources:
           limits:
             cpu: 200m
@@ -36,3 +47,20 @@ spec:
           requests:
             cpu: 50m
             memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ax-correlation-bridge
+  namespace: ax-system
+  labels:
+    app: ax-runtime-observer
+spec:
+  type: NodePort
+  selector:
+    app: ax-runtime-observer
+  ports:
+  - name: webhook
+    port: 8088
+    targetPort: 8088
+    nodePort: 30088

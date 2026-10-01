@@ -3,7 +3,7 @@ metadata:
   name: state-probe-full
 containers:
 - name: guest
-  image: localhost:5001/state-probe@sha256:3d5eae7a173e1ae8b0d1a6e7c7e0010df1638d6b0fbef7e6d6ba5d48292143c0
+  image: localhost:5001/state-probe@sha256:7521115bc95405707df2f335096727f2748b566517833269a2dc6148e5f78779
   command:
   - python3
   - /app/probe.py

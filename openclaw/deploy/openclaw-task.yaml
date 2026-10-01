@@ -4,7 +4,7 @@ metadata:
   name: openclaw-task
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:ebcf1473a83d16bc50a1199fae64824e1a08b3b9cd49dfffb8f5a8fcf0261be3"
   command:
     - /bin/bash
     - /agent/run_workload.sh
@@ -15,6 +15,8 @@ spec:
       value: "http://external-scan-api:8080"
     - name: MCP_URL
       value: "http://external-mcp-server:8000/mcp"
+    - name: TASK_NAME
+      value: "openclaw-task"
     - name: WORKSPACE
       value: "/workspace"
     - name: OTEL_EXPORTER_OTLP_ENDPOINT

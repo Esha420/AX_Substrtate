@@ -1,20 +1,23 @@
-# 5-Actor Multiplexing Demonstration Fleet
-# Demonstrates scheduling 5 logical OpenClaw actors across 3 physical workers.
-# Workers are reclaimed during external wait and dynamically reassigned upon native ingress wake.
+# 5-Actor Heterogeneous Multiplexing Fleet
+# Demonstrates scheduling 5 logical autonomous OpenClaw actors across 3 physical workers.
+# Workloads exercise diverse real-world patterns (Research, Data, Monitoring, Document, Security)
+# with independent external wait intervals, operation correlation, and dynamic worker reuse.
 ---
 apiVersion: ax.io/v1alpha1
 kind: Task
 metadata:
-  name: openclaw-task-1
+  name: openclaw-research
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:cfb4987eac0df2a68a32b780f42c2a70d9dec780a9d2a63bf5441ddc3dc54d9f"
   command:
     - /bin/bash
     - /agent/run_workload.sh
   env:
-    - name: TARGET
-      value: "security-target.default.svc.cluster.local"
+    - name: TASK_NAME
+      value: "openclaw-research"
+    - name: ROLE
+      value: "research"
     - name: SCAN_API_URL
       value: "http://external-scan-api:8080"
     - name: MCP_URL
@@ -24,7 +27,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
     - name: OTEL_SERVICE_NAME
-      value: "openclaw-agent-1"
+      value: "openclaw-research"
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
       value: "http/protobuf"
   debug: true
@@ -32,16 +35,18 @@ spec:
 apiVersion: ax.io/v1alpha1
 kind: Task
 metadata:
-  name: openclaw-task-2
+  name: openclaw-data
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:cfb4987eac0df2a68a32b780f42c2a70d9dec780a9d2a63bf5441ddc3dc54d9f"
   command:
     - /bin/bash
     - /agent/run_workload.sh
   env:
-    - name: TARGET
-      value: "security-target.default.svc.cluster.local"
+    - name: TASK_NAME
+      value: "openclaw-data"
+    - name: ROLE
+      value: "data"
     - name: SCAN_API_URL
       value: "http://external-scan-api:8080"
     - name: MCP_URL
@@ -51,7 +56,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
     - name: OTEL_SERVICE_NAME
-      value: "openclaw-agent-2"
+      value: "openclaw-data"
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
       value: "http/protobuf"
   debug: true
@@ -59,16 +64,18 @@ spec:
 apiVersion: ax.io/v1alpha1
 kind: Task
 metadata:
-  name: openclaw-task-3
+  name: openclaw-monitoring
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:cfb4987eac0df2a68a32b780f42c2a70d9dec780a9d2a63bf5441ddc3dc54d9f"
   command:
     - /bin/bash
     - /agent/run_workload.sh
   env:
-    - name: TARGET
-      value: "security-target.default.svc.cluster.local"
+    - name: TASK_NAME
+      value: "openclaw-monitoring"
+    - name: ROLE
+      value: "monitoring"
     - name: SCAN_API_URL
       value: "http://external-scan-api:8080"
     - name: MCP_URL
@@ -78,7 +85,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
     - name: OTEL_SERVICE_NAME
-      value: "openclaw-agent-3"
+      value: "openclaw-monitoring"
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
       value: "http/protobuf"
   debug: true
@@ -86,16 +93,18 @@ spec:
 apiVersion: ax.io/v1alpha1
 kind: Task
 metadata:
-  name: openclaw-task-4
+  name: openclaw-document
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:cfb4987eac0df2a68a32b780f42c2a70d9dec780a9d2a63bf5441ddc3dc54d9f"
   command:
     - /bin/bash
     - /agent/run_workload.sh
   env:
-    - name: TARGET
-      value: "security-target.default.svc.cluster.local"
+    - name: TASK_NAME
+      value: "openclaw-document"
+    - name: ROLE
+      value: "document"
     - name: SCAN_API_URL
       value: "http://external-scan-api:8080"
     - name: MCP_URL
@@ -105,7 +114,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
     - name: OTEL_SERVICE_NAME
-      value: "openclaw-agent-4"
+      value: "openclaw-document"
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
       value: "http/protobuf"
   debug: true
@@ -113,14 +122,18 @@ spec:
 apiVersion: ax.io/v1alpha1
 kind: Task
 metadata:
-  name: openclaw-task-5
+  name: openclaw-security
   atespace: default
 spec:
-  image: "localhost:5001/openclaw-agent@sha256:220d66bb027670e0ab360f7c8faf108eb7ad023881768ac99624a79e16c54db9"
+  image: "localhost:5001/openclaw-agent@sha256:cfb4987eac0df2a68a32b780f42c2a70d9dec780a9d2a63bf5441ddc3dc54d9f"
   command:
     - /bin/bash
     - /agent/run_workload.sh
   env:
+    - name: TASK_NAME
+      value: "openclaw-security"
+    - name: ROLE
+      value: "security"
     - name: TARGET
       value: "security-target.default.svc.cluster.local"
     - name: SCAN_API_URL
@@ -132,7 +145,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://opentelemetry-collector.otel-system.svc.cluster.local:4318"
     - name: OTEL_SERVICE_NAME
-      value: "openclaw-agent-5"
+      value: "openclaw-security"
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
       value: "http/protobuf"
   debug: true
